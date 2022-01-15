@@ -3,9 +3,349 @@
 <head>
     <meta charset=utf-8>
     <meta name=viewport content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <link rel=stylesheet href=reset.css>
+    <link rel=stylesheet href=style.css>
+    <title>Handmade OS in 30 days</title>
 </head>
 <body>
-    <p>TST</p>
-</body>
-</html>
+<article>
+<h1>Handmade OS in 30 days</h1><h2 id="preface">Preface</h2>
+<p>Welcome abroad, young OS developer! You have stepped out into an endless ocean of the one of the most interesting hobbies there are. Trust me, this book barely scratches the surface of what's possible, but it gives enough for you to build something you can show off to your friends and if you want, learn more about OS development, giving you not only the opportunity to build <strong>an</strong> OS, but the opportunity to build you <strong>the</strong> OS you want.</p>
+<p>Each chapter is named according to what you're about to do in the chapter, but besides the instruction, each chapter contains the detailed explanation of what we're doing and why we're doing. If you're blindly copying the code, don't expect it to work! Read the book carefully, make sure you understand everything.</p>
+<h2 id="table-of-contents">Table of contents</h2>
+<ol start="0" type="1">
+<li><a href="#ch00">Day 00 / Hello, world!</a>
+<ol type="1">
+<li><a href="#ch00-01">Setting up the stage</a></li>
+<li><a href="#ch00-02">How OS's start up</a></li>
+<li><a href="#ch00-03">Making a bootable image</a></li>
+<li><a href="#ch00-04">Intro to the NASM assembler</a></li>
+</ol></li>
+<li><a href="#ch01">Day 01 / Reading the disk</a>
+<ol type="1">
+<li></li>
+</ol></li>
+<li><a href="#ch02">Day 02 / Starting C programming</a>
+<ol type="1">
+<li></li>
+</ol></li>
+<li><a href="#ch03">Day 03 / GDT/IDT setup</a>
+<ol type="1">
+<li></li>
+</ol></li>
+<li><a href="#ch04">Day 04 / Interrupt handling</a>
+<ol type="1">
+<li></li>
+</ol></li>
+</ol>
+<h2 id="ch00">Hello, world!</h2>
+<p>Today is the first (actually zeroth) day of our OS development. Today there will be a lot of theory, but at the end you will build something that is actually tangible. The plan is to build the most primitive OS that simply displays "Hello world" to the screen and does nothing else.</p>
+<p>To actually build and run our OS we would need a few programs. The following chapter lists all the requirements and the installation instructions.</p>
+<h3 id="ch00-01">1. Setting up the stage</h3>
+<p>The OS will be developed using two programming languages - C and Assembly. The reason for such choice is partly my personal preference and partly the necessary choice.</p>
+<p>In principle you can make your OS in any systems-level programming language you want, be it C, C++, Rust or Go. But when you do so, some parts of the programming language can't be utilized, since they require an OS in order to be function. For example the <code>printf</code> function, a C function that prints character strings to a screen can not be used. Since we're writing the OS even if we called <code>printf</code> we'd just crash, or won't be able to compile our code properly.</p>
+<p>Once you disable such functionality, you can use whatever programming language you want. The reason C is a good programming language here is because it doesn't have that many features that depend on existing OS functionality. Basically I chose C because that's easier for the explanation.</p>
+<p>The assembly is our second language, but only because it is necessary to write some parts of the OS in it. When you develop an OS sometimes you need to play around with specific registers in the processor or have a more fine-grained control over what code gets generated. Since C is not made for OS development, it naturally won't have those things. With assembly you can do pretty much anything, which is why we need it. We could even write the whole OS in assembly, but its incredibly tiring, so I'd rather pass. Besides who would read a book like that, haha.</p>
+<p>For the C compiler in this book we will use the GCC compiler. If you're using Windows I recommend downloading TDM-GCC. It's a fairly minimal binary distribution of GCC compiler which won't require you to install as much as 4gb.</p>
+<p>Note that you won't be able to use Visual Studio's C compiler. Or rather you can, but that will require you to search internet on how to disable certain compiler features that we can't use, because the compiler options for these two compilers are different.</p>
+<p>Download TDM-GCC into whatever directory you want. You will need to remember that directory for later.</p>
+<p>For the assembler we will use NASM. This is one of the assemblers which also comes as a fairly minimal distribution. Download and install it into whatever directory you want. You will need to remember the name of the directory for later.</p>
+<p>After we have compiled our OS we will need to somehow run it. When you turn on your computer the OS is loaded from the disk. So we will need to create a disk image with the OS on it and then write that image onto the disk (About why its not as simple as copying the OS file onto the disk we'll talk later). The program called Win32DiskImager can write image files onto thumb drives, so you can download it as well.</p>
+<p>When developing our OS you are likely to recompile it lots of times, and going through the cycle of writing an OS to thumb drive and restarting the PC might not be the best use of time. To make the process simpler we will use an emulator. There are two good emulators I know, one of them is bochs and another is QEMU. We will use QEMU, because it's easier to set up. You can download QEMU from the official website. Again you'll need to remember the directory where its installed.</p>
+<p>The last but not the least, it's optional to have some hex editor installed. This is a program that lets you view the bytes of the files directly. This is very useful in many situations when you develop an OS. I suggest downloading and using HxD.</p>
+<p>When developing the OS we will use one program more often than any other -- that's the command line. It should be installed on Windows by default. In case you're not familiar with it, the following is a small tutorial on cmd. First, to start the command line you press <code>win+r</code> and in the appeared window you type <code>cmd</code> and hit enter.</p>
+<p>The part after <code>&gt;</code> is the place where you enter commands to command your OS to perform certain operations. Try typing <code>dir</code> and hitting enter, like this:</p>
+<pre><code>&gt; dir</code></pre>
+<p>In this book whenever there is a direction to type a command into the command line, I will start the line with <code>&gt;</code>. This is representing the command line prompt, so you don't type this symbol.</p>
+<p>The <code>dir</code> is a command that prints the contents of the current directory. Currently your current directory is <code>C:\Windows\System32\</code>. You can see it before the <code>&gt;</code>. You can change the current directory to something else by typing <code>cd &lt;path&gt;</code>. Let's, for example change our current directory to <code>C:\</code>.</p>
+<pre><code>&gt; cd C:\</code></pre>
+<p>Now we'll create the directory where we will be developing our OS. You can chose whatever path you want. For this example I chose <code>C:\os</code>, for a lack of imagination.</p>
+<pre><code>&gt; mkdir os</code></pre>
+<p>The <code>mkdir &lt;path&gt;</code> creates a directory on a given directory. Now switch your current directory to the newly created directory. This directory is where I will assume your current directory to be every time we use the command line. If you close the command line and come back the next day, just remember to switch your current directory to the path where your OS is located.</p>
+<p>Now what we want to do is to be able to use nasm and all the other programs that we just downloaded. We can do this by typing the full path to exe, like this:</p>
+<pre><code>&gt; path/to/nasm.exe</code></pre>
+<p>But that's lengthy. What I want to do now is to add the path/to/nasm to the PATH environment variable. If we do that, then we can just type <code>nasm.exe</code> and Windows will automatically know that we refer to the <code>path/to/nasm.exe</code>.</p>
+<p>Here's how to do it. Hit <code>win+r</code>, this time type <code>sysdm.cpl</code> and hit enter. In the appeared window switch to "Advanced" tab, and press the "Environment Variables..." button. In the "System variables" you need to select "Path" and then press the "Edit..." button.</p>
+<p>If you're using Windows 8 and above you simply need to add the paths to <code>qemu-system-i386.exe</code>, <code>nasm.exe</code> and <code>gcc.exe</code> (remember the installation directories). If you're using Windows 7, you need to paste these paths and make sure they are separated with <code>;</code>. Save the changes, and close the Environment variable editor.</p>
+<p>To check that everything has been done correctly close and re-open the command line. Then type</p>
+<pre><code>&gt; nasm -v</code></pre>
+<p>This command should print nasm version and return to the prompt. If you see something along the lines of "nasm is not a command or a file", then you did something wrong.</p>
+<p>This concludes our tool setup. Now we'll learn more about how exactly we would need to make our OS.</p>
+<h3 id="ch00-02">2. How OS boots</h3>
+<p>When you turn on the PC, the OS loader is loaded from the disk into the memory and then executed. Then the OS loader is supposed to load the rest of the OS. The program called BIOS is responsible for loading the OS loader from the disk.</p>
+<p>You may be familiar with BIOS if you ever entered the BIOS settings menu. The BIOS settings is not the same as BIOS itself (but rather a part of it). Please be careful to not confuse the two. The BIOS is the first program to run on your PC right after you turn on the power button.</p>
+<p>Unlike OS, the BIOS is not stored on disk, but rather it's stored in the motherboard ROM. It comes already installed right after you buy a fresh motherboard.</p>
+<p>After BIOS has started it performs hardware initialization. It checks all the disks in the system (thumb drives, SSD's and hard drives), and if it finds a bootable disk, it loads the OS from that disk. Note that the first found device will be booted from, which is why the order is important. If there is one OS on the thumb drive, and another on the hard drive, then the order in which BIOS checks these disks determines which OS will be loaded. That's why you can change this checking order in the BIOS settings.</p>
+<p>Most disks are separated into 512-byte chunks called <em>sectors</em>. When you interact with the disk you can not load less than a sector, and you can not write than a sector. So the sector is the minimum adressable unit of any disk.</p>
+<p>The first sector of every disk is reserved and contains the OS boot code. If the two last bytes of this sector are <code>55 aa</code> (hex), then the disk is considered bootable by BIOS and the rest of the boot code is ran. That's why the first sector is also called the <em>boot sector</em>.</p>
+<p>The boot sector looks roughly like this:</p>
+<table>
+    <tr><th>Offset (hex)</th><th>Size</th><th>Description</th></tr>
+    <tr><td><code>000</code></td><td>510</td><td>The loader code</td></tr>
+    <tr><td><code>1fe</code></td><td>2</td><td>The <code>55 aa</code> boot signature</td></tr>
+</table>
+<p>We have only 510 bytes for the code! But don't worry, it's not as much as to cause us to suffer deficiency, if we write trivial loader. If anything, it's more than enough for our purposes.</p>
+<p>There's one more sweet thing about BIOS. BIOS also provides its own functions that help loader boot the rest of the OS. There are BIOS functions that print characters to the screen, the functions that load sectors from disks and other functions related to primitive hardware control.</p>
+<p>Now we will write our first boot sector and try figuring out how to actually run it.</p>
+<h3 id="ch00-03">3. Making a bootable image</h3>
+<p>Now I want to create an image of the bootable disk with some code. The meaning of the code will be explained later, right now let's focus on how to actually get the bootable image.</p>
+<p>The bootable image is the byte-by-byte representation of the data on the disk. Since disks are only addressed by sectors, the size of that file would be a multiple of 512 bytes. If this data is then written ("burned") to the disk, the disk will have these exact bytes.</p>
+<p>Note that we can actually use images that are much less than the size of the disk. In this case the part that the disk image didn't overwrite will remain untouched. So for now we will use this and use 512-bytes long image that contains only the boot sector.</p>
+<p>First, we'll need to have a 512-bytes long binary file that contains the boot sector. For this open HxD, and type the following bytes:</p>
+<pre><code>b800 008e d8be 1d7c b40e bb07 008a 0483
+c601 3c00 7404 cd10 ebf3 f4eb fd48 656c
+6c6f 2c20 576f 726c 6421 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 0000
+0000 0000 0000 0000 0000 0000 0000 55aa</code></pre>
+<p>There are lots of zeroes, so you can try using the copy and paste feature of the HxD to finish the job more quickly. After you're done save the file in your OS directory and name it <code>boot.bin</code> (<em>a rose by any other name would smell as sweet</em>).</p>
+<p><code>boot.bin</code> is our disk image. Now we need to run our OS, (if I dare calling the loader an OS). First, let's try running it in an emulator to make sure everything is correct. For this use the command <code>qemu-system-i386 &lt;disk image&gt;</code> into the command line:</p>
+<pre><code>&gt; qemu-system-i386 boot.bin</code></pre>
+<p>Note that when you do that QEMU prints a warning:</p>
+<pre><code>WARNING: Image format was not specified for &#39;boot.bin&#39; and probing guessed raw.
+         Automatically detecting the format is dangerous for raw images, write operations on block 0 will be restricted.
+         Specify the &#39;raw&#39; format explicitly to remove the restrictions.</code></pre>
+<p>You can ignore this warning for now, I will show you how to specify the format of the disk image explicitly later. If you copied the bytes of the boot sector correctly, you should see the following result:</p>
+<p><img src="media/00_qemu_result.png" /></p>
+<p>The particular content of the screen may differ depending on the QEMU version, but if you don't see the "Hello, World!" string, something is wrong. Check that you typed the boot sector correctly and that it's size is exactly 512 bytes.</p>
+<p>If your image file is correct, we can move on to trying to run it on a real hardware. Make sure you got a thumb drive (or another storage medium) that has no important data. Because any data that's stored will become unavailable. Open Win32DiskImager, the program that writes disk images to disks.</p>
+<p>In the "Image File" field, chose the file <code>boot.bin</code>. If you can't find it, make sure to disable the <code>.iso</code> filter in Win32DiskImager. Then in the "Device" dropdown chose your thumb drive. Make sure you picked the correct device. Then hit the "write" button. After the process finished you got a bootable USB!</p>
+<p>Now you need to know how to enter your BIOS settings. Turn off your PC and set the USB as the first boot option, and the hard drive as the second option (you have to do it only once, just don't forget to eject the USB before rebooting back into Windows). I can't give you more detailed instructions, because the specifics depend from one PC to another.</p>
+<p>Plug in your USB and restart your computer. Since USB is the first device, it checks it's boot signature (<code>55 aa</code>). If there is a boot signature, BIOS will run our boot code. If the boot signature is not there, it would boot back into the Windows.</p>
+<p>If after that you boot back into Windows (assuming that you were in the emulator), the most likely problem is that your USB is not the first boot option. The other causes may be that your motherboard doesn't start-up in the BIOS mode. This also can be changed in BIOS settings.</p>
+<p>If you see the "Hello, World!" message, I congradulate you! You can show this off to your friends and say how cool you are. Except there is only one problem -- we still have no idea what are these bytes, and how they correspond to the "Hello, World!" message. We'll start by re-writing our image in the Assembly language.</p>
+<h3 id="ch00-04">4. Intro to the NASM assembler</h3>
+<p>The CPU reads the code as bytes, instruction by instruction. The assembly language is relatively straightforward -- you write one instruction per line, and the assembler converts this into the corresponding machine code.</p>
+<p>One of the first instructions that we'll learn is <code>db</code> (data byte). It is not a real instruction, in the sense that it's not being processed by the CPU, but rather its a pseudo-instruction, it instructs NASM to do something special. The <code>db</code> instruction tells NASM to put the given byte value into the file.</p>
+<p>Try this: create a file, which we will use later, call it <code>boot.asm</code>. Then write the following contents into the file:</p>
+<pre><code>db 0xb8</code></pre>
+<p>And save it. Then in the command line run</p>
+<pre><code>nasm boot.asm -o boot.bin</code></pre>
+<p>This command tells NASM to compile <code>boot.asm</code> and put the compiled file into <code>boot.bin</code>. This will overwrite the contents of boot.bin, so be careful. <code>-o</code> stands for "output". The dash there signifies that it is a command-line option.</p>
+<p>After you have compiled the file, open boot.bin in the hex editor. You should see 0xb8 as the only byte of it. So as you can see, NASM simply put the given value 0xb8 value into the file. We can write multiple bytes like this:</p>
+<pre><code>db 0xb8
+db 0x00</code></pre>
+<p>Or, for shortness we can just list the bytes after a comma:</p>
+<pre><code>db 0xb8, 0x00</code></pre>
+<p>By continuing copy-pasting the bytes from our initial <code>boot.bin</code> we can achieve the following assembly:</p>
+<pre><code>db 0xb8, 0x00, 0x00, 0x8e, 0xd8, 0xbe, 0x1d, 0x7c
+db 0xb4, 0x0e, 0xbb, 0x07, 0x00, 0x8a, 0x04, 0x83
+db 0xc6, 0x01, 0x3c, 0x00, 0x74, 0x04, 0xcd, 0x10
+db 0xeb, 0xf3, 0xf4, 0xeb, 0xfd, 0x48, 0x65, 0x6c
+db 0x6c, 0x6f, 0x2c, 0x20, 0x57, 0x6f, 0x72, 0x6c
+db 0x64, 0x21, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+db 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x55, 0xaa</code></pre>
+<p>This is way more typing! But you don't have to do it all manually, I simply left it here for demonstration purposes. If you copy-paste this into <code>boot.asm</code> and assemble it, you should get exactly the same <code>boot.bin</code> as before, except now it is written in assembly and then assembled, instead of being written directly as bytes.</p>
+<p>So this is why NASM is also the all-powerful tool which you can use to type whatever program you want and whatever file you want! Of course, it is just a joke, kind of like saying that you can write any great book with just a pencil and paper. But it just shows the versatility of the language.</p>
+<p>Now I will introduct another useful instruction. It is also a pseudo-instruction, this time I'd even say a "meta-instruction". This instruction is <code>times</code>. By doing <code>times N &lt;instruction&gt;</code> you can achieve the same result as if the instruction was actually typed out N times. We can use this to remove all the zeroes in <code>boot.asm</code> above.</p>
+<pre><code>db 0xb8, 0x00, 0x00, 0x8e, 0xd8, 0xbe, 0x1d, 0x7c
+db 0xb4, 0x0e, 0xbb, 0x07, 0x00, 0x8a, 0x04, 0x83
+db 0xc6, 0x01, 0x3c, 0x00, 0x74, 0x04, 0xcd, 0x10
+db 0xeb, 0xf3, 0xf4, 0xeb, 0xfd, 0x48, 0x65, 0x6c
+db 0x6c, 0x6f, 0x2c, 0x20, 0x57, 0x6f, 0x72, 0x6c
+db 0x64, 0x21, 0x00
 
+times 467 db 0x00
+
+db 0x55
+db 0xaa</code></pre>
+<p>There were 467 zeroes so I removed them and replaced with <code>times 467 db 0x00</code>.</p>
+<p>By the way, it's a fun observation on my side, but for some reason you can't use <code>times</code> as the argument to <code>times</code>. Somehow NASM breaks, what a pity. In any case you can use arithmetics as <code>N</code>, so you shoulf be able to do stuff like <code>times 400+67 db 0x00</code>.</p>
+<p>Now prepare for the great reveal. I will uncover the rest of the assembly code and we will look at each of the parts in a greater detail, as well as learn a few more facts about x86, BIOS and the assembly language.</p>
+<pre><code>org 0x7c00
+
+start:
+    mov ax, 0
+    mov ds, ax
+print:
+    mov si, string
+    mov ah, 0x0e
+    mov bx, 0x0007
+putchar:
+    mov al, [si]
+    add si, 1
+    cmp al, 0
+    je end
+    int 0x10
+    jmp putchar
+end:
+    hlt
+    jmp end
+
+string:
+    db &#39;Hello, World!&#39;, 0
+
+    times 510 - ($-$$) db 0
+    db 0x55
+    db 0xaa</code></pre>
+<p>Finally some letters! Let's start digging the instructions. I will skip the first line until later. Then we see the following part:</p>
+<pre><code>start:
+    mov ax, 0
+    mov ds, ax</code></pre>
+<p>The <code>start:</code> is a label. When you put a label before an instruction, in this case before <code>mov ax, 0</code>, that label points to that instruction. We can later use that label to refer to that instruction, for example figure out it's memory address.</p>
+<p>The <code>mov</code> instruction moves the value of the second operand into the first operand. Actually, <code>mov</code> is a kind of misnomer. When you move a thing, it is understood that the thing is not on its old place anymore. With <code>mov</code>, rather than moving it's more like copying. So the guys at Intel should have thought better and named this instruction "copy" or "set". In any case <code>mov ax, 0</code> means "ax = 0". It sets the register ax to zero. Likewise, <code>mov ds, ax</code> sets the register ds to the value of ax.</p>
+<p>For now think of registers as kinds of variables, and when you program assembly there is only a limited amount of those "variables". The registers in x86 have their own names, here I will name them all:</p>
+<ul>
+<li><strong>ax</strong> - accumulator</li>
+<li><strong>cx</strong> - counter</li>
+<li><strong>dx</strong> - data</li>
+<li><strong>bx</strong> - base</li>
+<li><strong>si</strong> - source index</li>
+<li><strong>di</strong> - destination index</li>
+<li><strong>sp</strong> - stack pointer</li>
+<li><strong>bp</strong> - base pointer</li>
+<li><strong>cs</strong> - code segment</li>
+<li><strong>ss</strong> - stack segment</li>
+<li><strong>ds</strong> - (default) data segment</li>
+<li><strong>es</strong> - extra data segment</li>
+</ul>
+<p>The first 8 are general-purpose registers. This means they can be used interchangeably for most general-purpose instructions, such as arithmetic, comparison, jumps, memory accesses. The reason for their names is that some instructions are biased towards some registers over the other, and if you use the registers according to their name you can write relatively fast and short code. E.g. if you use accumulator register as the cumulative value during the computation a complex expression, you can avoid extra <code>mov</code> instruction.</p>
+<p>The last four registers are segment registers. They are used for memory addressing. You can note that above we were setting the data segment to zero. I won't explain why this is important for now, just know that doing so will help avoid problems with addressing for now.</p>
+<p>With this we have figured out that the first 3 lines of code do roughly what I can describe as "register initialization". The next block is the following:</p>
+<pre><code>print:
+    mov si, string
+    mov ah, 0x0e
+    mov bx, 0x0007
+
+; ... Some code ...
+
+string:
+    db &#39;Hello, World!&#39;, 0</code></pre>
+<p>And a quick remark, lines starting with <code>;</code> mark comments. The comment spans until the end of line and is ignored by the assembler.</p>
+<p>After the <code>print:</code> label, the first thing we're doing is we're setting <code>si</code> to be <code>string</code>. But if si is a 16-bit register, what does it exacrly mean to set it to string? Well, it is finally the time to tell you about the labels in NASM.</p>
+<p>The labels in NASM are memory addresses of the instruction that comes next. The string "Hello, World!" is located at the offset <code>0x1d</code> from the start of the file. And since the boot sector is loaded starting at the address <code>0x7c00</code>, the address of the string in memory would be <code>0x7c00+0x1d = 0x7c1d</code>. This will be the address of the label <code>string</code>.</p>
+<p>So in this case, <code>mov si, string</code> means the same thing as <code>mov si, 0x7c1d</code>. The reason we're using labels is because as soon as we remove or add new instructions, we would have to recalculate the new address of the string within the file. This is dirty work that we don't want and don't have to do. What a convenient world!</p>
+<p>Also note how the load address of the program is participates in this calculation. This is exactly why we needed that <code>org</code> instruction at the beginning. If we for some reason forgot it or specified a wrong address, the address calculation would have yielded a wrong value (0x1b would be added to a wrong offset) pointing to some random location in memory and we wouldn't have printed anything coherent.</p>
+<p>Next, here is a seemingly new register, <code>ah</code>. In fact, the first four general-purpose registers (<code>ax</code>, <code>cx</code>, <code>dx</code>, <code>bx</code>) can be split up into the low 8 bits and the high 8 bits. So the low 8 bits of <code>ax</code> are called <code>al</code>, and the high 8 bits of <code>ax</code> are called <code>ah</code>. Similarly <code>cl</code>, <code>dl</code>, <code>bl</code> are the low 8-bits of <code>cx</code>, <code>dx</code>, <code>bx</code> and <code>ch</code>, <code>dh</code>, <code>bh</code> are their high 8 bits.</p>
+<p>When you mov to the high 8 bits of some these registers, the low 8 bits remain untouched. The other general purpose registers and segment regsiters can't be split like that. Don't ask why, I didn't design x86, haha.</p>
+<p>Then we set the bx register to be <code>0x0007</code>. This is self-explanatory.</p>
+<p>And lastly, there is a new way of using the <code>db</code> command. Rather than specifying numbers you can specify character strings. For that you can surround the string with singular quotes (') or double quotes ("). When you do that NASM stores that entire string, character by character into the output file.</p>
+<p>Moving to the next part:</p>
+<pre><code>putchar:
+    mov al, [si]
+    add si, 1
+    cmp al, 0
+    je end
+    int 0x10
+    jmp putchar</code></pre>
+<p>Following the label we see another <code>mov</code> instruction. But this time it's something new. Time to talk about memory.</p>
+<p>The memory can be imagined as a flat array of bytes. The indices to that array are what's called the "address in memory". Whenever you load something from memory or put something into the memory, you always say something like "Hey can you put the value XX into the box number YYYY" to the CPU.</p>
+<p>The square brackets around an operand turn the simple assignment into memory load. So rather than setting the value of <code>al</code> to the value of <code>si</code>, we're setting the value of <code>al</code> to the value of <em>memory cell</em> at address <code>si</code>.</p>
+<p>In this case only a single byte is read from the memory, because the size of destination (al) is 8. If we wrote instead <code>mov ax, [si]</code> that would have loaded 2 bytes from the memory into <code>ax</code>. So the number of bytes loaded depends on the operands. But sometimes it's not possible to infer the size of the load just from the operands. Consider <code>mov [si], 2</code>. If you wrote that, NASM would kindly say the following:</p>
+<pre><code>error: operation size not specified</code></pre>
+<p>The way you can specify the operand size is by prepending <code>[]</code> with either <code>byte</code>, <code>word</code> or <code>dword</code>. In the case above that would be <code>mov byte[si], 2</code> or <code>mov word[si], 2</code>. It's also true that <code>mov al, [si]</code> is the same thing as <code>mov al, byte[si]</code>.</p>
+<p>Also an important note. When you load multibyte value from the memory, for example <code>mov ax, word[si]</code>, the low 8 bits of <code>ax</code> will be loaded from the address <code>si</code>, and the high 8 bits will be loaded from the address <code>si+1</code>.</p>
+<p>Returning to the next instruction on the line, we see <code>add si, 1</code>. This is self-explanatory, we increment <code>si</code> by 1, so the next time it will point to the next character in the string.</p>
+<p><code>cmp al, 0</code> will compare <code>al</code> with 0. It won't do anything besides set the FLAGS register, one of the registers we haven't talked about yet. The FLAGS register contains the status of the previous instruction, like whether the previous instruction overflown, as well as the results of comparison, like whether the result of comparison was "greater", "less" or "equal". It only sets the flags, doesn't do much more. This is important for the next instruction.</p>
+<p>Which is <code>je end</code>. <code>je</code> stands for "Jump if Equal". Here <code>end</code> is a label, meaning it will have the value of the memory address of the instruction to which we're going to jump. And the "if equal" part is taken from the results of the previous comparison. Reading the pair of instructions, the meaning is "we're going to jump to <code>end</code> if <code>al</code> is 0".</p>
+<p>Next is <code>int 0x10</code>. INT stands for interrupt. Explaining interrupts here fully would suck out all the energy from you so I will just ask you to think about interrupt here as "function call". In particular this is BIOS call that prints the character. You can find many different interrupt tables online, including on Wikipedia.</p>
+<p>The number after <code>int</code> specifies a general kind of function you're calling. The number <code>0x10</code> (16) means you're calling a display function, if it was 0x13, you'd be calling disk services. There are also numbers for keyboard, mouse, timers.</p>
+<p>The function is defined not only by the interrupt number, but also by the value of <code>ah</code> at the time we're calling the interrupt. If you remember, we set <code>ah</code> to be 0x0e. If you look the wikipedia article for int 0x10 with ah=0x0e, you can find a function like this:</p>
+<pre><code>INT 0x10 / AH = 0x0e
+Print character function
+Parameters:
+    al = character
+    bh = page number
+    bl = color
+Returns:
+    none</code></pre>
+<p>So the parameters are stored in the registers. If you remember, <code>al</code> is the register containing the characters of the strings that we load from <code>si</code>, and <code>bx</code> is always <code>0x0007</code>. This means that <code>bh</code> is 0, and <code>bl</code> is always <code>0x07</code>. I won't bother you with the meaning of these two parameters, but just note that the color 0x07 is light grey, and it's fine to just leave the page number at 0.</p>
+<p>So this <code>int</code> instruction prints the character at <code>al</code> to the screen.</p>
+<p>Finally, the last instruction of this block is <code>jmp</code>. JMP stands for jump. <code>jmp</code> doesn't check any flags in the FLAGS register, in this case it just jumps back to the point when we read the next character from the string.</p>
+<p>So overall this block of code reads the characters from the string, one by one, until it encounters <code>0x00</code>, and print them to the screen.</p>
+<p>And the final block of code is this:</p>
+<pre><code>end:
+    hlt
+    jmp end</code></pre>
+<p>You can see that this is an infinite loop that runs a single instruction - <code>hlt</code>. HLT stands for Halt, it's used to put the processor to sleep until the next interrupt, which is used to consume the power. I like thinking that I'm saving the planet from the apocalypse by inserting a HLT instruction into infinite loops, so this is why I didn't just wrote</p>
+<pre><code>end:
+    jmp end</code></pre>
+<p>The last part is more-less familiar to us, just written differently.</p>
+<pre><code>times 510 - ($-$$) db 0
+db 0x55
+db 0xaa</code></pre>
+<p>Here, if you read <code>$-$$</code> as "the number of bytes in the file up until this point", you can clearly see how <code>510-($-$$)</code> is simply the number of bytes that is needed until you reach 510. In our case the number of bytes before that huge block of zeroes is 43, so 510-43 is 467. We will insert zero 467 times. And the 43 code bytes + 467 zeroes should leave us at offset 510.</p>
+<p>Then we simply insert the remaining bytes, 55 and aa, our boot signature. This concludes the explanation of the assembly. I encourage you to read through the full code again, making sure you understand it and what it does.</p>
