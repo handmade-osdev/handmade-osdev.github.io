@@ -101,6 +101,6 @@ code {
 
 pre code {
     display: block;
-    margin: 0 4ch 0 2ch;
+    margin: 0 4ch 5px 2ch;
     overflow: auto;
 }
